@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>里厚 中西式早點 - 線上點餐</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #fdfbf7;
+            color: #333;
+        }
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        .item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+        .item-row:last-child {
+            border-bottom: none;
+        }
+        .price-badge {
+            font-family: monospace;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #d97706; /* Amber-600 */
+        }
+        
+        /* 隱藏數字輸入框的預設上下箭頭 */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+
+        /* 總計金額動畫特效 */
+        .total-update {
+            animation: pop 0.3s ease-out;
+            color: #ef4444 !important; /* Red */
+        }
+        @keyframes pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        /* 列印樣式調整 */
+        @media print {
+            body { background-color: white; padding: 0 !important; }
+            .shadow-lg { box-shadow: none; }
+            .bg-orange-50, .bg-amber-50, .bg-yellow-50, .bg-blue-50, .bg-amber-100 { background-color: white; border: 1px solid #e2e8f0; }
+            .menu-grid { grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+            .container { max-width: 100%; padding: 0; }
+            #bottom-checkout-bar { display: none !important; } /* 列印時隱藏底部結帳列 */
+            main { padding-bottom: 0 !important; }
+            .btn-minus, .btn-plus { display: none !important; } /* 列印時隱藏加減按鈕 */
+            .qty-input { border: 1px solid #cbd5e1 !important; }
+        }
+    </style>
+</head>
+<body class="py-4 md:py-8 px-4 text-sm md:text-base relative">
+
+<!-- 主內容區塊 (增加 bottom padding 避免被固定底部列遮擋) -->
+<div class="max-w-6xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden border border-gray-100 mb-28">
+    
+    <!-- Header Section -->
+    <header class="bg-amber-500 text-white p-6 relative">
+        <div class="flex flex-col md:flex-row justify-between items-start gap-4">
+            <div>
+                <h1 class="text-4xl md:text-5xl font-black tracking-wider mb-2">里厚 <span class="text-2xl md:text-3xl font-medium tracking-normal opacity-90">LI HOU</span></h1>
+                <p class="text-lg md:text-xl font-bold tracking-widest bg-white text-amber-600 inline-block px-3 py-1 rounded-full mb-3 shadow-sm">中西式早點</p>
+                <div class="text-amber-50 mt-2 space-y-1 text-sm md:text-base">
+                    <p class="flex items-center"><svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"></path></svg> 訂餐專線：(07)392-1018</p>
+                    <p class="flex items-center"><svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path></svg> 址址：高雄市三民區壽昌路8號</p>
+                    <p class="flex items-center"><svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path></svg> 營業時間：周一至周日</p>
+                </div>
+            </div>
+            
+            <!-- 用餐方式與桌號 -->
+            <div class="bg-white text-gray-800 p-4 rounded-lg shadow-md min-w-[200px] w-full md:w-auto">
+                <div class="flex justify-around mb-3 font-bold text-lg">
+                    <label class="flex items-center cursor-pointer hover:text-amber-600">
+                        <input type="radio" name="dining_type" value="外帶" class="w-5 h-5 mr-2 accent-amber-500 cursor-pointer" checked>外帶
+                    </label>
+                    <label class="flex items-center cursor-pointer hover:text-amber-600">
+                        <input type="radio" name="dining_type" value="內用" class="w-5 h-5 mr-2 accent-amber-500 cursor-pointer">內用
+                    </label>
+                </div>
+                <div class="flex items-center border-t border-gray-200 pt-3 mt-1">
+                    <span class="font-bold mr-2 whitespace-nowrap">桌號：</span>
+                    <input type="text" class="border-b-2 border-gray-400 focus:border-amber-500 outline-none flex-grow h-8 text-center text-lg font-bold text-amber-700 bg-transparent placeholder-gray-300" placeholder="填寫桌號">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="p-4 md:p-6">
+        <div class="menu-grid">
+            
+            <!-- ================= Column 1 ================= -->
+            <div class="space-y-6">
+                <!-- 漢堡系列 -->
+                <section class="bg-orange-50 rounded-lg p-4 border border-orange-100 shadow-sm relative">
+                    <h2 class="text-lg font-bold text-amber-700 border-b-2 border-amber-300 pb-1 mb-3">漢堡系列</h2>
+                    <div class="space-y-1">
+                        <div class="item-row"><span class="font-medium">蛋堡</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">鮪魚堡</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燻雞堡</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">豬排堡</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燒肉堡</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                        <div class="item-row"><span class="font-medium">豬柳堡</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                        <div class="item-row"><span class="font-medium">麥香雞堡</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                        <div class="item-row"><span class="font-medium">漢堡蛋</span><div class="flex items-center"><span class="price-badge mr-3">50</span><div class="qty-controller" data-price="50"></div></div></div>
+                        <div class="item-row"><span class="font-medium">冰島鱈魚堡</span><div class="flex items-center"><span class="price-badge mr-3">55</span><div class="qty-controller" data-price="55"></div></div></div>
+                        <div class="item-row"><span class="font-medium">藍帶豬排堡</span><div class="flex items-center"><span class="price-badge mr-3">55</span><div class="qty-controller" data-price="55"></div></div></div>
+                        <div class="item-row"><span class="font-medium">咔拉雞腿堡</span><div class="flex items-center"><span class="price-badge mr-3">55</span><div class="qty-controller" data-price="55"></div></div></div>
+                        <div class="item-row"><span class="font-medium">泰式蝦肉堡</span><div class="flex items-center"><span class="price-badge mr-3">55</span><div class="qty-controller" data-price="55"></div></div></div>
+                        <div class="item-row"><span class="font-medium text-red-600">3盎司厚牛堡</span><div class="flex items-center"><span class="price-badge mr-3">60</span><div class="qty-controller" data-price="60"></div></div></div>
+                        <!-- 漢堡區加蛋選項 -->
+                        <div class="item-row mt-3 bg-amber-100/50 p-2 rounded-lg border border-amber-200/50">
+                            <span class="font-medium text-amber-800 flex items-center"><span class="text-xl mr-1">🍳</span>額外加蛋</span>
+                            <div class="flex items-center"><span class="price-badge mr-3 text-amber-700">+15</span><div class="qty-controller" data-price="15"></div></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 丹麥吐司系列 -->
+                <section class="bg-amber-50 rounded-lg p-4 border border-amber-100 shadow-sm">
+                    <h2 class="text-lg font-bold text-amber-700 border-b-2 border-amber-300 pb-1 mb-3">丹麥吐司系列</h2>
+                    <div class="space-y-1">
+                        <div class="item-row"><span class="font-medium">田園鮮蔬丹麥</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燻雞丹麥</span><div class="flex items-center"><span class="price-badge mr-3">45</span><div class="qty-controller" data-price="45"></div></div></div>
+                        <div class="item-row"><span class="font-medium">豬排丹麥</span><div class="flex items-center"><span class="price-badge mr-3">50</span><div class="qty-controller" data-price="50"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燒肉丹麥</span><div class="flex items-center"><span class="price-badge mr-3">50</span><div class="qty-controller" data-price="50"></div></div></div>
+                        <div class="item-row"><span class="font-medium">起司蛋丹麥</span><div class="flex items-center"><span class="price-badge mr-3">55</span><div class="qty-controller" data-price="55"></div></div></div>
+                        <!-- 加蛋選項 -->
+                        <div class="item-row mt-3 bg-amber-100/50 p-2 rounded-lg border border-amber-200/50">
+                            <span class="font-medium text-amber-800 flex items-center"><span class="text-xl mr-1">🍳</span>額外加蛋</span>
+                            <div class="flex items-center"><span class="price-badge mr-3 text-amber-700">+15</span><div class="qty-controller" data-price="15"></div></div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 烤土司系列 -->
+                <section class="bg-yellow-50 rounded-lg p-4 border border-yellow-100 shadow-sm">
+                    <h2 class="text-lg font-bold text-amber-700 border-b-2 border-amber-300 pb-1 mb-2">烤土司系列</h2>
+                    <div class="space-y-1">
+                        <div class="item-row items-start pt-2">
+                            <div class="flex flex-col">
+                                <span class="font-medium">果醬土司</span>
+                                <select class="text-xs bg-white border border-gray-300 rounded p-1 mt-1 text-gray-700 outline-none w-24 focus:border-amber-500 shadow-sm">
+                                    <option>草莓</option><option>花生</option><option>奶酥</option><option>煉奶</option><option>巧克力</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center mt-1"><span class="price-badge mr-3">15</span><div class="qty-controller" data-price="15"></div></div>
+                        </div>
+                        <div class="item-row"><span class="font-medium">火腿土司</span><div class="flex items-center"><span class="price-badge mr-3">25</span><div class="qty-controller" data-price="25"></div></div></div>
+                        <div class="item-row"><span class="font-medium">肉鬆土司</span><div class="flex items-center"><span class="price-badge mr-3">25</span><div class="qty-controller" data-price="25"></div></div></div>
+                        <div class="item-row"><span class="font-medium">起司土司</span><div class="flex items-center"><span class="price-badge mr-3">25</span><div class="qty-controller" data-price="25"></div></div></div>
+                        <div class="item-row"><span class="font-medium">煎蛋土司</span><div class="flex items-center"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div></div>
+                        <div class="item-row"><span class="font-medium">蔬菜土司</span><div class="flex items-center"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div></div>
+                        <div class="item-row"><span class="font-medium">培根土司</span><div class="flex items-center"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div></div>
+                        <div class="item-row"><span class="font-medium">鮪魚土司</span><div class="flex items-center"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燻雞土司</span><div class="flex items-center"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div></div>
+                        <div class="item-row"><span class="font-medium">肉排土司</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">豬排土司</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">豬柳土司</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燒肉土司</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <!-- 加蛋選項 -->
+                        <div class="item-row mt-3 bg-amber-100/50 p-2 rounded-lg border border-amber-200/50">
+                            <span class="font-medium text-amber-800 flex items-center"><span class="text-xl mr-1">🍳</span>額外加蛋</span>
+                            <div class="flex items-center"><span class="price-badge mr-3 text-amber-700">+15</span><div class="qty-controller" data-price="15"></div></div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- 法式吐司系列 -->
+                <section class="bg-orange-50 rounded-lg p-4 border border-orange-100 shadow-sm">
+                    <h2 class="text-lg font-bold text-amber-700 border-b-2 border-amber-300 pb-1 mb-3">法式吐司系列</h2>
+                    <div class="space-y-1">
+                        <div class="item-row"><span class="font-medium">法式煉奶</span><div class="flex items-center"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div></div>
+                        <div class="item-row"><span class="font-medium">法式肉鬆</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">法式起司</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">法式燒肉</span><div class="flex items-center"><span class="price-badge mr-3">45</span><div class="qty-controller" data-price="45"></div></div></div>
+                        <div class="item-row"><span class="font-medium">法式豬排</span><div class="flex items-center"><span class="price-badge mr-3">45</span><div class="qty-controller" data-price="45"></div></div></div>
+                        <!-- 加蛋選項 -->
+                        <div class="item-row mt-3 bg-amber-100/50 p-2 rounded-lg border border-amber-200/50">
+                            <span class="font-medium text-amber-800 flex items-center"><span class="text-xl mr-1">🍳</span>額外加蛋</span>
+                            <div class="flex items-center"><span class="price-badge mr-3 text-amber-700">+15</span><div class="qty-controller" data-price="15"></div></div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ================= Column 2 ================= -->
+            <div class="space-y-6">
+                <!-- 烤總匯系列 -->
+                <section class="bg-amber-50 rounded-lg p-4 border border-amber-100 shadow-sm">
+                    <h2 class="text-lg font-bold text-amber-700 border-b-2 border-amber-300 pb-1 mb-3">烤總匯系列</h2>
+                    <div class="space-y-1">
+                        <div class="item-row"><span class="font-medium">田園鮮蔬總匯</span><div class="flex items-center"><span class="price-badge mr-3">45</span><div class="qty-controller" data-price="45"></div></div></div>
+                        <div class="item-row"><span class="font-medium">鮪魚總匯</span><div class="flex items-center"><span class="price-badge mr-3">50</span><div class="qty-controller" data-price="50"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燻雞總匯</span><div class="flex items-center"><span class="price-badge mr-3">50</span><div class="qty-controller" data-price="50"></div></div></div>
+                        <div class="item-row"><span class="font-medium">豬排總匯</span><div class="flex items-center"><span class="price-badge mr-3">55</span><div class="qty-controller" data-price="55"></div></div></div>
+                        <div class="item-row"><span class="font-medium">肉排總匯</span><div class="flex items-center"><span class="price-badge mr-3">55</span><div class="qty-controller" data-price="55"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燒肉總匯</span><div class="flex items-center"><span class="price-badge mr-3">55</span><div class="qty-controller" data-price="55"></div></div></div>
+                        <div class="item-row"><span class="font-medium">咔拉雞總匯</span><div class="flex items-center"><span class="price-badge mr-3">70</span><div class="qty-controller" data-price="70"></div></div></div>
+                    </div>
+                </section>
+
+                <!-- 厚片系列 -->
+                <section class="bg-yellow-50 rounded-lg p-4 border border-yellow-100 shadow-sm">
+                    <h2 class="text-lg font-bold text-amber-700 border-b-2 border-amber-300 pb-1 mb-2">厚片系列</h2>
+                    <div class="space-y-1">
+                        <div class="item-row items-start pt-2">
+                            <div class="flex flex-col">
+                                <span class="font-medium">果醬厚片</span>
+                                <select class="text-xs bg-white border border-gray-300 rounded p-1 mt-1 text-gray-700 outline-none w-24 focus:border-amber-500 shadow-sm">
+                                    <option>草莓</option><option>花生</option><option>奶酥</option><option>煉奶</option><option>巧克力</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center mt-1"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div>
+                        </div>
+                        <div class="item-row"><span class="font-medium">玉米厚片</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">鮪魚厚片</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燻雞厚片</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                        <div class="item-row"><span class="font-medium">起司蛋厚片</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                    </div>
+                </section>
+
+                <!-- 盒酥系列 -->
+                <section class="bg-orange-50 rounded-lg p-4 border border-orange-100 shadow-sm">
+                    <h2 class="text-lg font-bold text-amber-700 border-b-2 border-amber-300 pb-1 mb-2">盒酥系列</h2>
+                    <div class="space-y-1">
+                        <div class="item-row items-start pt-2">
+                            <div class="flex flex-col">
+                                <span class="font-medium">果醬盒酥</span>
+                                <select class="text-xs bg-white border border-gray-300 rounded p-1 mt-1 text-gray-700 outline-none w-24 focus:border-amber-500 shadow-sm">
+                                    <option>草莓</option><option>花生</option><option>奶酥</option><option>巧克力</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center mt-1"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div>
+                        </div>
+                        <div class="item-row"><span class="font-medium">玉米盒酥</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">起司盒酥</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">鮪魚盒酥</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燻雞盒酥</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                    </div>
+                </section>
+
+                <!-- 抓餅系列 -->
+                <section class="bg-amber-50 rounded-lg p-4 border border-amber-100 shadow-sm">
+                    <h2 class="text-lg font-bold text-amber-700 border-b-2 border-amber-300 pb-1 mb-3">抓餅系列</h2>
+                    <div class="space-y-1">
+                        <div class="item-row"><span class="font-medium">抓餅蛋</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">蔬菜抓餅蛋</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                        <div class="item-row"><span class="font-medium">起士抓餅蛋</span><div class="flex items-center"><span class="price-badge mr-3">45</span><div class="qty-controller" data-price="45"></div></div></div>
+                        <div class="item-row"><span class="font-medium">鮪魚抓餅蛋</span><div class="flex items-center"><span class="price-badge mr-3">45</span><div class="qty-controller" data-price="45"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燒肉抓餅蛋</span><div class="flex items-center"><span class="price-badge mr-3">45</span><div class="qty-controller" data-price="45"></div></div></div>
+                    </div>
+                </section>
+
+                <!-- 蛋餅系列 -->
+                <section class="bg-yellow-50 rounded-lg p-4 border border-yellow-100 shadow-sm">
+                    <h2 class="text-lg font-bold text-amber-700 border-b-2 border-amber-300 pb-1 mb-3">蛋餅系列</h2>
+                    <div class="space-y-1">
+                        <div class="item-row"><span class="font-medium">原味蛋餅</span><div class="flex items-center"><span class="price-badge mr-3">25</span><div class="qty-controller" data-price="25"></div></div></div>
+                        <div class="item-row"><span class="font-medium">玉米蛋餅</span><div class="flex items-center"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div></div>
+                        <div class="item-row"><span class="font-medium">肉鬆蛋餅</span><div class="flex items-center"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div></div>
+                        <div class="item-row"><span class="font-medium">起司蛋餅</span><div class="flex items-center"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div></div>
+                        <div class="item-row"><span class="font-medium">火腿蛋餅</span><div class="flex items-center"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div></div>
+                        <div class="item-row"><span class="font-medium">培根蛋餅</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">鮪魚蛋餅</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燻雞蛋餅</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">蔬菜蛋餅</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">豬排蛋餅</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                        <div class="item-row"><span class="font-medium">燒肉蛋餅</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                        <div class="item-row"><span class="font-medium">薯餅蛋餅</span><div class="flex items-center"><span class="price-badge mr-3">45</span><div class="qty-controller" data-price="45"></div></div></div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ================= Column 3 ================= -->
+            <div class="space-y-6">
+                <!-- 冷熱飲系列 -->
+                <section class="bg-blue-50 rounded-lg p-4 border border-blue-100 shadow-sm">
+                    <h2 class="text-lg font-bold text-blue-700 border-b-2 border-blue-300 pb-1 mb-3">冷熱飲系列</h2>
+                    <div class="space-y-2">
+                        <!-- 雙尺寸飲料樣板 -->
+                        <div class="item-row py-1"><span class="font-medium">紅茶</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">10</span><div class="qty-controller" data-price="10"></div></div>
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">大</span><span class="price-badge mr-2 w-6 text-right opacity-70">15</span><div class="qty-controller" data-price="15"></div></div>
+                        </div></div>
+                        <div class="item-row py-1"><span class="font-medium">豆漿</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">15</span><div class="qty-controller" data-price="15"></div></div>
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">大</span><span class="price-badge mr-2 w-6 text-right opacity-70">20</span><div class="qty-controller" data-price="20"></div></div>
+                        </div></div>
+                        <!-- 單一尺寸飲料樣板 -->
+                        <div class="item-row py-1"><span class="font-medium">無糖豆漿(冰)</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">20</span><div class="qty-controller" data-price="20"></div></div>
+                        </div></div>
+                        
+                        <div class="item-row py-1"><span class="font-medium">紅茶豆漿</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">15</span><div class="qty-controller" data-price="15"></div></div>
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">大</span><span class="price-badge mr-2 w-6 text-right opacity-70">20</span><div class="qty-controller" data-price="20"></div></div>
+                        </div></div>
+                        <div class="item-row py-1"><span class="font-medium">奶茶</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">15</span><div class="qty-controller" data-price="15"></div></div>
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">大</span><span class="price-badge mr-2 w-6 text-right opacity-70">20</span><div class="qty-controller" data-price="20"></div></div>
+                        </div></div>
+                        <div class="item-row py-1"><span class="font-medium">咖啡牛奶</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">15</span><div class="qty-controller" data-price="15"></div></div>
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">大</span><span class="price-badge mr-2 w-6 text-right opacity-70">20</span><div class="qty-controller" data-price="20"></div></div>
+                        </div></div>
+                        <div class="item-row py-1"><span class="font-medium">百香果</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">15</span><div class="qty-controller" data-price="15"></div></div>
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">大</span><span class="price-badge mr-2 w-6 text-right opacity-70">20</span><div class="qty-controller" data-price="20"></div></div>
+                        </div></div>
+                        <div class="item-row py-1"><span class="font-medium">柳橙汁</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">15</span><div class="qty-controller" data-price="15"></div></div>
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">大</span><span class="price-badge mr-2 w-6 text-right opacity-70">20</span><div class="qty-controller" data-price="20"></div></div>
+                        </div></div>
+                        <div class="item-row py-1"><span class="font-medium">水蜜桃</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">15</span><div class="qty-controller" data-price="15"></div></div>
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">大</span><span class="price-badge mr-2 w-6 text-right opacity-70">20</span><div class="qty-controller" data-price="20"></div></div>
+                        </div></div>
+                        <div class="item-row py-1"><span class="font-medium">阿華田</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">20</span><div class="qty-controller" data-price="20"></div></div>
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">大</span><span class="price-badge mr-2 w-6 text-right opacity-70">25</span><div class="qty-controller" data-price="25"></div></div>
+                        </div></div>
+                        
+                        <div class="item-row py-1"><span class="font-medium">鮮奶</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">20</span><div class="qty-controller" data-price="20"></div></div>
+                        </div></div>
+                        <div class="item-row py-1"><span class="font-medium">燕麥薏仁(冰)</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">25</span><div class="qty-controller" data-price="25"></div></div>
+                        </div></div>
+                        <div class="item-row py-1"><span class="font-medium">黑芝麻燕麥(冰)</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">25</span><div class="qty-controller" data-price="25"></div></div>
+                        </div></div>
+                        
+                        <div class="item-row py-1"><span class="font-medium">鮮奶茶</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">25</span><div class="qty-controller" data-price="25"></div></div>
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">大</span><span class="price-badge mr-2 w-6 text-right opacity-70">30</span><div class="qty-controller" data-price="30"></div></div>
+                        </div></div>
+                        <div class="item-row py-1"><span class="font-medium">鮮奶豆漿</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">25</span><div class="qty-controller" data-price="25"></div></div>
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">大</span><span class="price-badge mr-2 w-6 text-right opacity-70">30</span><div class="qty-controller" data-price="30"></div></div>
+                        </div></div>
+                        <div class="item-row py-1"><span class="font-medium">鮮奶咖啡</span><div class="flex flex-col gap-1 items-end">
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">小</span><span class="price-badge mr-2 w-6 text-right">30</span><div class="qty-controller" data-price="30"></div></div>
+                            <div class="flex items-center"><span class="text-xs font-bold text-gray-500 mr-2 bg-gray-200 px-1 rounded">大</span><span class="price-badge mr-2 w-6 text-right opacity-70">35</span><div class="qty-controller" data-price="35"></div></div>
+                        </div></div>
+                    </div>
+                </section>
+
+                <!-- 熱食系列 -->
+                <section class="bg-orange-50 rounded-lg p-4 border border-orange-100 shadow-sm">
+                    <h2 class="text-lg font-bold text-amber-700 border-b-2 border-amber-300 pb-1 mb-3">熱食系列</h2>
+                    <div class="space-y-1">
+                        <div class="item-row"><span class="font-medium">荷包蛋</span><div class="flex items-center"><span class="price-badge mr-3">15</span><div class="qty-controller" data-price="15"></div></div></div>
+                        <div class="item-row"><span class="font-medium">熱狗(4條)</span><div class="flex items-center"><span class="price-badge mr-3">20</span><div class="qty-controller" data-price="20"></div></div></div>
+                        <div class="item-row"><span class="font-medium">薯餅</span><div class="flex items-center"><span class="price-badge mr-3">20</span><div class="qty-controller" data-price="20"></div></div></div>
+                        <div class="item-row"><span class="font-medium">熱狗蛋捲</span><div class="flex items-center"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div></div>
+                        <div class="item-row"><span class="font-medium">蘿蔔糕</span><div class="flex items-center"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div></div>
+                        <div class="item-row"><span class="font-medium">薯條</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">雞塊(5塊)</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">雞米花</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">小肉豆</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">小雞球</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">青花椒雞塊</span><div class="flex items-center"><span class="price-badge mr-3">40</span><div class="qty-controller" data-price="40"></div></div></div>
+                    </div>
+                </section>
+
+                <!-- 乳酪餅系列 -->
+                <section class="bg-yellow-50 rounded-lg p-4 border border-yellow-100 shadow-sm">
+                    <h2 class="text-lg font-bold text-amber-700 border-b-2 border-amber-300 pb-1 mb-2">乳酪餅系列</h2>
+                    <div class="space-y-1">
+                        <div class="item-row items-start pt-2">
+                            <div class="flex flex-col">
+                                <span class="font-medium">果醬乳酪餅</span>
+                                <select class="text-xs bg-white border border-gray-300 rounded p-1 mt-1 text-gray-700 outline-none w-24 focus:border-amber-500 shadow-sm">
+                                    <option>草莓</option><option>花生</option><option>奶酥</option><option>煉奶</option><option>巧克力</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center mt-1"><span class="price-badge mr-3">30</span><div class="qty-controller" data-price="30"></div></div>
+                        </div>
+                        <div class="item-row"><span class="font-medium">肉鬆乳酪餅</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">火腿乳酪餅</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                        <div class="item-row"><span class="font-medium">起司乳酪餅</span><div class="flex items-center"><span class="price-badge mr-3">35</span><div class="qty-controller" data-price="35"></div></div></div>
+                    </div>
+                </section>
+
+                <!-- 麵食系列 -->
+                <section class="bg-amber-100/70 rounded-lg p-4 border border-amber-200 shadow-sm">
+                    <h2 class="text-lg font-bold text-amber-800 border-b-2 border-amber-400 pb-1 mb-3">麵食系列</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="item-row font-bold"><span class="text-lg">鍋燒麵</span><div class="flex items-center"><span class="price-badge text-xl mr-3">65</span><div class="qty-controller" data-price="65"></div></div></div>
+                            <div class="mt-1">
+                                <select class="text-sm bg-white border border-gray-300 rounded p-1.5 text-gray-700 outline-none w-full focus:border-amber-500 shadow-sm">
+                                    <option value="" disabled selected>請選擇麵條種類</option>
+                                    <option>意麵</option><option>雞絲</option><option>冬粉</option><option>泡麵</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="item-row font-bold"><span class="text-lg">泡菜鍋燒</span><div class="flex items-center"><span class="price-badge text-xl mr-3">80</span><div class="qty-controller" data-price="80"></div></div></div>
+                            <div class="mt-1">
+                                <select class="text-sm bg-white border border-gray-300 rounded p-1.5 text-gray-700 outline-none w-full focus:border-amber-500 shadow-sm">
+                                    <option value="" disabled selected>請選擇麵條種類</option>
+                                    <option>意麵</option><option>雞絲</option><option>冬粉</option><option>泡麵</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="border-t border-amber-300 pt-3">
+                            <div class="item-row font-bold"><span class="text-lg">鐵板麵</span><div class="flex items-center"><span class="price-badge text-xl mr-3">60</span><div class="qty-controller" data-price="60"></div></div></div>
+                            <div class="mt-1">
+                                <select class="text-sm bg-white border border-gray-300 rounded p-1.5 text-gray-700 outline-none w-full focus:border-amber-500 shadow-sm">
+                                    <option value="" disabled selected>請選擇口味</option>
+                                    <option>茄汁</option><option>黑胡椒</option><option>奶油</option><option>青醬</option>
+                                </select>
+                            </div>
+                            
+                            <!-- 鐵板麵加料 -->
+                            <div class="mt-3 bg-amber-50 p-2 rounded border border-amber-200">
+                                <div class="item-row items-start">
+                                    <div class="flex flex-col w-full">
+                                        <span class="font-medium text-amber-800 flex items-center"><span class="text-lg mr-1">🥩</span>鐵板麵加料</span>
+                                        <select class="text-xs bg-white border border-gray-300 rounded p-1 mt-1 text-gray-700 outline-none w-24 focus:border-amber-500 shadow-sm">
+                                            <option>燒肉</option><option>燻雞</option><option>豬排</option>
+                                        </select>
+                                    </div>
+                                    <div class="flex items-center mt-1"><span class="price-badge mr-3 text-amber-700">+20</span><div class="qty-controller" data-price="20"></div></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+            </div>
+            
+        </div>
+    </main>
+</div>
+
+<!-- 浮動在底部的結帳列 -->
+<div id="bottom-checkout-bar" class="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-amber-500 p-4 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.15)] z-50 transition-transform duration-300 transform translate-y-0">
+    <div class="max-w-6xl mx-auto flex justify-between items-center px-2">
+        <div class="flex flex-col">
+            <span class="text-gray-500 font-bold text-sm">訂單總計</span>
+            <div>
+                <span class="text-xl md:text-2xl font-bold text-amber-600 mr-1">$</span>
+                <span class="text-3xl md:text-4xl font-black text-amber-600 transition-colors" id="total-amount">0</span>
+            </div>
+        </div>
+        <button class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 px-8 rounded-full text-lg shadow-md active:scale-95 transition flex items-center">
+            確認送出 <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+        </button>
+    </div>
+</div>
+
+<!-- Javascript 計算邏輯 -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. 初始化所有的數量控制器 ([-] input [+])
+    const controllers = document.querySelectorAll('.qty-controller');
+    
+    controllers.forEach(container => {
+        const price = container.getAttribute('data-price');
+        
+        // 渲染按鈕與輸入框
+        container.className = "flex items-center border border-gray-300 rounded-md overflow-hidden bg-white shadow-sm h-8";
+        container.innerHTML = `
+            <button type="button" class="btn-minus w-8 h-full flex justify-center items-center bg-gray-50 text-gray-600 hover:bg-gray-200 active:bg-gray-300 transition select-none font-bold text-lg">-</button>
+            <input type="number" min="0" value="0" class="qty-input w-10 h-full text-center text-amber-700 font-bold focus:outline-none focus:bg-amber-50 border-x border-gray-200 p-0 m-0" data-price="${price}">
+            <button type="button" class="btn-plus w-8 h-full flex justify-center items-center bg-gray-50 text-gray-600 hover:bg-gray-200 active:bg-gray-300 transition select-none font-bold text-lg">+</button>
+        `;
+        
+        const btnMinus = container.querySelector('.btn-minus');
+        const btnPlus = container.querySelector('.btn-plus');
+        const input = container.querySelector('.qty-input');
+        
+        // 減號邏輯
+        btnMinus.addEventListener('click', () => {
+            let val = parseInt(input.value) || 0;
+            if (val > 0) {
+                input.value = val - 1;
+                calculateTotal();
+            }
+        });
+        
+        // 加號邏輯
+        btnPlus.addEventListener('click', () => {
+            let val = parseInt(input.value) || 0;
+            if(val < 99) { // 限制最大數量
+                input.value = val + 1;
+                calculateTotal();
+            }
+        });
+        
+        // 直接輸入邏輯
+        input.addEventListener('input', () => {
+            let val = parseInt(input.value);
+            if (val < 0 || isNaN(val)) input.value = 0;
+            if (val > 99) input.value = 99; // 限制最大數量
+            calculateTotal();
+        });
+        
+        // 優化輸入體驗：點擊時清空 0，離開時若空白補回 0
+        input.addEventListener('focus', function() {
+            if(this.value === '0') this.value = '';
+            // 自動選取文字以方便修改
+            this.select(); 
+        });
+        input.addEventListener('blur', function() {
+            if(this.value === '') this.value = '0';
+        });
+    });
+    
+    // 2. 計算總金額函數
+    function calculateTotal() {
+        let total = 0;
+        const inputs = document.querySelectorAll('.qty-input');
+        inputs.forEach(input => {
+            const qty = parseInt(input.value) || 0;
+            const price = parseInt(input.getAttribute('data-price')) || 0;
+            total += qty * price;
+        });
+        
+        // 更新 UI (帶有簡單動畫)
+        const totalDisplay = document.getElementById('total-amount');
+        if (totalDisplay) {
+            const oldTotal = parseInt(totalDisplay.innerText);
+            totalDisplay.innerText = total;
+            
+            // 如果金額有變動，觸發跳動特效
+            if (oldTotal !== total) {
+                totalDisplay.classList.remove('total-update');
+                // 觸發重繪 (reflow)
+                void totalDisplay.offsetWidth;
+                totalDisplay.classList.add('total-update');
+            }
+        }
+    }
+
+    // 初始計算一次
+    calculateTotal();
+});
+</script>
+
+</body>
+</html>
